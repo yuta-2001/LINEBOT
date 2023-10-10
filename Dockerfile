@@ -1,8 +1,14 @@
-FROM python:3.8
+FROM python:3.9-buster
 
-WORKDIR /usr/src/app
+ENV PYTHONUNBUFFERED=1
 
-COPY /app/requirements.txt ./
+WORKDIR /src
 
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install poetry
+
+COPY pyproject.toml* poetry.lock* ./
+
+RUN poetry config virtualenvs.in-project true
+RUN if [ -f pyproject.toml ]; then poetry install --no-root; fi
+
+ENTRYPOINT ["poetry", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--reload"]
