@@ -5,6 +5,7 @@ from fastapi import (
 )
 import os
 from dotenv import load_dotenv
+from starlette.exceptions import HTTPException
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import (
@@ -18,9 +19,10 @@ from linebot.v3.webhooks import (
     MessageEvent,
     TextMessageContent
 )
-from starlette.exceptions import HTTPException
+from api.utils.logger import Logger
 
 load_dotenv()
+log = Logger().get()
 router = APIRouter()
 
 handler = WebhookHandler(os.environ.get('CHANNEL_SECRET'))
@@ -38,6 +40,7 @@ async def callback(request: Request, x_line_signature=Header(None)):
         handler.handle(body.decode("utf-8"), x_line_signature)
 
     except InvalidSignatureError:
+        log.error('webhookエラー発生')
         raise HTTPException(status_code=400, detail="InvalidSignatureError")
 
     return "OK"
