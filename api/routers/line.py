@@ -6,6 +6,7 @@ from fastapi import (
 import os
 from dotenv import load_dotenv
 from starlette.exceptions import HTTPException
+from firebase_admin import firestore
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import (
@@ -20,9 +21,11 @@ from linebot.v3.webhooks import (
     TextMessageContent
 )
 from api.utils.logger import Logger
+from api.utils.firebase_manager import FirebaseManager
 
 load_dotenv()
 log = Logger().get()
+db = FirebaseManager.get_instance().db
 router = APIRouter()
 
 handler = WebhookHandler(os.environ.get('CHANNEL_SECRET'))
