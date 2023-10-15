@@ -6,7 +6,6 @@ from fastapi import (
 import os
 from dotenv import load_dotenv
 from starlette.exceptions import HTTPException
-from firebase_admin import firestore
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import (
@@ -20,12 +19,12 @@ from linebot.v3.webhooks import (
     MessageEvent,
     TextMessageContent
 )
+from api.services.line_service import LineService
+from api.services.line_search_restaurant_service import LineSearchRestaurantService
 from api.utils.logger import Logger
-from api.utils.firebase_manager import FirebaseManager
 
 load_dotenv()
 log = Logger().get()
-db = FirebaseManager.get_instance().db
 router = APIRouter()
 
 handler = WebhookHandler(os.environ.get('CHANNEL_SECRET'))
@@ -50,6 +49,26 @@ async def callback(request: Request, x_line_signature=Header(None)):
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
+    recive_text = event.message.text
+
+    if recive_text == '近くの飲食店を探す':
+        reply_text, options = LineSearchRestaurantService(event.source.user_id).startConversation()
+        quick_reply_messages = LineService().makeQuickReply(options)
+
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[
+                        TextMessage(
+                            text=reply_text,
+                            quick_reply=quick_reply_messages
+                        )
+                    ]
+                )
+            )
+
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message_with_http_info(
