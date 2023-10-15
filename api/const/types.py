@@ -1,0 +1,3 @@
+TYPES = {
+    'restaurant': 1
+}
