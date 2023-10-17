@@ -5,8 +5,7 @@ from linebot.v3.messaging.models import (
 )
 
 class LineService:
-    @staticmethod
-    def makeQuickReply(options: list):
+    def _makeQuickReply(self, options):
         items = []
         for option in options:
             items.append(QuickReplyItem(action=MessageAction(label=option, text=option)))
