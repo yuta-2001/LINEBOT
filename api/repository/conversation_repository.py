@@ -11,3 +11,7 @@ class ConversationRepository:
         updated_at
     ):
         pass
+
+    @abstractclassmethod
+    def get_conversation_info_by_user_id(self, user_id):
+        pass

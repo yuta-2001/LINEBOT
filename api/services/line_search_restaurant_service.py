@@ -36,6 +36,32 @@ class LineSearchRestaurantService(LineService):
                     ]
                 )
 
+    def ask_distance(self, answer):
+        current_status = QUESTION_SETTINGS[self.search_type]['order'][1]
+        update_data = {
+            'answer': answer,
+            'current_status': current_status,
+            'update_at': firestore.SERVER_TIMESTAMP
+        }
+        self.repository.update(self.user_id, update_data)
+
+        reply_text = QUESTION_SETTINGS[self.search_type]['questions'][current_status]['text']
+        options = list(QUESTION_SETTINGS[self.search_type]['questions'][current_status]['options'].keys())
+        quick_reply_messages = self._makeQuickReply(options)
+
+        return  ReplyMessageRequest(
+                    reply_token=self.reply_token,
+                    messages=[
+                        TextMessage(
+                            text=reply_text,
+                            quick_reply=quick_reply_messages
+                        )
+                    ]
+                )
+    
+    def get_conversation_info(self):
+        return self.repository.get_conversation_info_by_user_id(self.user_id)
+
     def _create_new_conversation(self, current_status):
         self.repository.store(
             user_id=self.user_id,
@@ -43,4 +69,4 @@ class LineSearchRestaurantService(LineService):
             current_status=current_status,
             created_at=firestore.SERVER_TIMESTAMP,
             updated_at=firestore.SERVER_TIMESTAMP
-        )
+        )        
