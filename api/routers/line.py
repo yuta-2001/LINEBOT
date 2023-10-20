@@ -53,9 +53,9 @@ def handle_message(event: MessageEvent):
     line_bot_api = MessagingApi(ApiClient(configuration))
     conversation_repository = FirebaseConversationRepository()
     conversation_manager = LineSearchRestaurantService(user_id, event.reply_token, conversation_repository)
-    user_conversation_info = conversation_manager.get_conversation_info()[0]
+    user_conversation_info = conversation_manager.get_conversation_info()
 
-
+    # 既に会話記録がある場合
     if user_conversation_info:
         if user_conversation_info['type'] == 1:
             if user_conversation_info['current_status'] == 1:
@@ -63,7 +63,7 @@ def handle_message(event: MessageEvent):
                     reply_content = conversation_manager.ask_distance(recive_text)
                     line_bot_api.reply_message(reply_content)
 
-
+    # 会話記録がない場合
     if recive_text == '近くの飲食店を探す':
         reply_content = conversation_manager.ask_genre()
         line_bot_api.reply_message(reply_content)

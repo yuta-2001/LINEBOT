@@ -24,7 +24,7 @@ class LineSearchRestaurantService(LineService):
 
         reply_text = QUESTION_SETTINGS[self.search_type]['questions'][current_status]['text']
         options = list(QUESTION_SETTINGS[self.search_type]['questions'][current_status]['options'].keys())
-        quick_reply_messages = self._makeQuickReply(options)
+        quick_reply_messages = self._make_quick_reply(options)
 
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
@@ -38,16 +38,10 @@ class LineSearchRestaurantService(LineService):
 
     def ask_distance(self, answer):
         current_status = QUESTION_SETTINGS[self.search_type]['order'][1]
-        update_data = {
-            'answer': answer,
-            'current_status': current_status,
-            'update_at': firestore.SERVER_TIMESTAMP
-        }
-        self.repository.update(self.user_id, update_data)
-
+        self._update_conversation(answer, current_status)
         reply_text = QUESTION_SETTINGS[self.search_type]['questions'][current_status]['text']
         options = list(QUESTION_SETTINGS[self.search_type]['questions'][current_status]['options'].keys())
-        quick_reply_messages = self._makeQuickReply(options)
+        quick_reply_messages = self._make_quick_reply(options)
 
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
@@ -58,15 +52,24 @@ class LineSearchRestaurantService(LineService):
                         )
                     ]
                 )
-    
+
     def get_conversation_info(self):
         return self.repository.get_conversation_info_by_user_id(self.user_id)
 
     def _create_new_conversation(self, current_status):
-        self.repository.store(
-            user_id=self.user_id,
-            type=TYPES[self.search_type],
-            current_status=current_status,
-            created_at=firestore.SERVER_TIMESTAMP,
-            updated_at=firestore.SERVER_TIMESTAMP
-        )        
+        store_data = {
+            'user_id': self.user_id,
+            'type': TYPES[self.search_type],
+            'current_status': current_status,
+            'created_at': firestore.SERVER_TIMESTAMP,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }
+        self.repository.store(store_data)
+
+    def _update_conversation(self, answer, current_status):
+        update_data = {
+            'answer': answer,
+            'current_status': current_status,
+            'update_at': firestore.SERVER_TIMESTAMP
+        }
+        self.repository.update(self.user_id, update_data)
