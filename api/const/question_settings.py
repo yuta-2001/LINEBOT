@@ -1,3 +1,4 @@
+# それぞれの質問内容を格納
 QUESTION_SETTINGS = {
     "restaurant": {
         'order': [1, 2],
@@ -5,6 +6,7 @@ QUESTION_SETTINGS = {
             1: {
                 'id': 1,
                 'text': 'お好みのジャンルを選択してください',
+                'property': 'keyword',
                 'options': {
                     '海鮮': 1,
                     'ラーメン': 2,
@@ -19,6 +21,7 @@ QUESTION_SETTINGS = {
             2: {
                 'id': 2,
                 'text': '現在地からの距離を入力してください',
+                'property': 'radius',
                 'options': {
                     '徒歩5分圏内': 400,
                     '徒歩10分圏内': 800,
@@ -29,4 +32,8 @@ QUESTION_SETTINGS = {
             },
         }
     }
+}
+
+TEXT_TO_START_CONVERSATION = {
+    'restaurant': '近くの飲食店を検索する'
 }

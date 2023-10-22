@@ -19,7 +19,7 @@ from linebot.v3.webhooks import (
 )
 from api.const.question_settings import QUESTION_SETTINGS
 from api.repository.firebase_conversation_repository import FirebaseConversationRepository
-from api.services.line_search_restaurant_service import LineSearchRestaurantService
+from api.services.conversation_manager_service import ConversationManagerService
 from api.utils.logger import Logger
 
 load_dotenv()
@@ -36,7 +36,6 @@ configuration = Configuration(access_token=os.environ.get('CHANNEL_ACCESS_TOKEN'
 )
 async def callback(request: Request, x_line_signature=Header(None)):
     body = await request.body()
-
     try:
         handler.handle(body.decode("utf-8"), x_line_signature)
 
@@ -46,24 +45,13 @@ async def callback(request: Request, x_line_signature=Header(None)):
 
     return "OK"
 
+
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
     recive_text = event.message.text
     user_id = event.source.user_id
     line_bot_api = MessagingApi(ApiClient(configuration))
     conversation_repository = FirebaseConversationRepository()
-    conversation_manager = LineSearchRestaurantService(user_id, event.reply_token, conversation_repository)
-    user_conversation_info = conversation_manager.get_conversation_info()
-
-    # 既に会話記録がある場合
-    if user_conversation_info:
-        if user_conversation_info['type'] == 1:
-            if user_conversation_info['current_status'] == 1:
-                if recive_text in QUESTION_SETTINGS['restaurant']['questions'][1]['options']:
-                    reply_content = conversation_manager.ask_distance(recive_text)
-                    line_bot_api.reply_message(reply_content)
-
-    # 会話記録がない場合
-    if recive_text == '近くの飲食店を探す':
-        reply_content = conversation_manager.ask_genre()
-        line_bot_api.reply_message(reply_content)
+    conversation_manager = ConversationManagerService(user_id, event.reply_token, conversation_repository)
+    reply_content = conversation_manager.handle_recive_text(recive_text)
+    line_bot_api.reply_message(reply_content)

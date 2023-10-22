@@ -1,3 +1,0 @@
-TYPES = {
-    'restaurant': 1
-}
