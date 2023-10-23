@@ -13,7 +13,6 @@ from linebot.v3.messaging import (
     FlexText,
     FlexIcon,
     FlexButton,
-    FlexSeparator,
     MessageAction,
     ReplyMessageRequest,
     TextMessage,
@@ -105,23 +104,22 @@ class ConversationManagerService():
 
 
     def get_result(self, latitude, longitude):
-        # conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
+        conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
-        # base_url = os.environ.get('GOOGLE_MAP_API_URL')
-        # query = {}
-        # query['radius'] = 200
-        # query['keyword'] = '海鮮'
-        # query['location'] = str(latitude)+','+str(longitude)
-        # query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
-        # query['type'] = conversation_data['type']
+        base_url = os.environ.get('GOOGLE_MAP_API_URL')
+        query = {}
+        query['radius'] = 200
+        query['keyword'] = '海鮮'
+        query['location'] = str(latitude)+','+str(longitude)
+        query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
+        query['type'] = conversation_data['type']
 
-        # endpoint = base_url + '?' + urlencode(query)
-        # log.debug(endpoint)
-        # response = requests.get(endpoint)
-        # data = response.json()
-        # result = data['results'][0]
-        # log.debug(result)
-        carousel = self._create_flex_message('a')
+        endpoint = base_url + '?' + urlencode(query) + '&opennow'
+        response = requests.get(endpoint)
+        data = response.json()
+        result = data['results'][:3]
+        log.debug(result)
+        carousel = self._create_flex_message(result)
 
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
@@ -166,103 +164,100 @@ class ConversationManagerService():
                 )
     
     def _create_flex_message(self, data):
-        bubble = FlexBubble(
-            direction='ltr',
-            hero=FlexImage(
-                url='https://example.com/cafe.jpg',
-                size='full',
-                aspect_ratio='20:13',
-                aspect_mode='cover',
-                action=URIAction(uri='http://example.com', label='label')
-            ),
-            body=FlexBox(
-                layout='vertical',
-                contents=[
-                    # title
-                    FlexText(text='Brown Cafe', weight='bold', size='xl'),
-                    # review
-                    FlexBox(
-                        layout='baseline',
-                        margin='md',
-                        contents=[
-                            FlexIcon(size='sm', url='https://example.com/gold_star.png'),
-                            FlexIcon(size='sm', url='https://example.com/grey_star.png'),
-                            FlexIcon(size='sm', url='https://example.com/gold_star.png'),
-                            FlexIcon(size='sm', url='https://example.com/gold_star.png'),
-                            FlexIcon(size='sm', url='https://example.com/grey_star.png'),
-                            FlexText(text='4.0', size='sm', color='#999999', margin='md', flex=0)
-                        ]
-                    ),
-                    # info
-                    FlexBox(
-                        layout='vertical',
-                        margin='lg',
-                        spacing='sm',
-                        contents=[
-                            FlexBox(
-                                layout='baseline',
-                                spacing='sm',
-                                contents=[
-                                    FlexText(
-                                        text='Place',
-                                        color='#aaaaaa',
-                                        size='sm',
-                                        flex=1
-                                    ),
-                                    FlexText(
-                                        text='Shinjuku, Tokyo',
-                                        wrap=True,
-                                        color='#666666',
-                                        size='sm',
-                                        flex=5
-                                    )
-                                ],
-                            ),
-                            FlexBox(
-                                layout='baseline',
-                                spacing='sm',
-                                contents=[
-                                    FlexText(
-                                        text='Time',
-                                        color='#aaaaaa',
-                                        size='sm',
-                                        flex=1
-                                    ),
-                                    FlexText(
-                                        text="10:00 - 23:00",
-                                        wrap=True,
-                                        color='#666666',
-                                        size='sm',
-                                        flex=5,
-                                    ),
-                                ],
-                            ),
-                        ],
-                    )
-                ],
-            ),
-            footer=FlexBox(
-                layout='vertical',
-                spacing='sm',
-                contents=[
-                    # callAction
-                    FlexButton(
-                        style='link',
-                        height='sm',
-                        action=URIAction(label='CALL', uri='tel:000000'),
-                    ),
-                    # separator
-                    FlexSeparator(),
-                    # websiteAction
-                    FlexButton(
-                        style='link',
-                        height='sm',
-                        action=URIAction(label='WEBSITE', uri="https://example.com")
-                    )
-                ]
-            ),
-        )
-        # bubbles = [FlexMessage(alt_text="hello", contents=bubble), FlexMessage(alt_text="hello", contents=bubble)]
-        bubbles = FlexCarousel(contents=[bubble, bubble])
+        items = []
+
+        for item in data:
+            image_url = self._get_photo_url(item["photos"][0]["photo_reference"])
+            stars = self._create_stars(int(item['rating']))
+
+            place_id = item['place_id']
+            google_maps_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+
+            bubble = FlexBubble(
+                direction='ltr',
+                hero=FlexImage(
+                    url=image_url,
+                    size='full',
+                    aspect_ratio=str(item['photos'][0]['width']) + ':' + str(item['photos'][0]['height']),
+                    aspect_mode='cover',
+                ),
+                body=FlexBox(
+                    layout='vertical',
+                    contents=[
+                        # title
+                        FlexText(text=item['name'], weight='bold', size='xl'),
+                        # review
+                        FlexBox(
+                            layout='baseline',
+                            margin='md',
+                            contents=stars
+                        ),
+                        # info
+                        FlexBox(
+                            layout='vertical',
+                            margin='lg',
+                            spacing='sm',
+                            contents=[
+                                FlexBox(
+                                    layout='baseline',
+                                    spacing='sm',
+                                    contents=[
+                                        FlexText(
+                                            text='レビュー数',
+                                            color='#aaaaaa',
+                                            size='sm',
+                                            flex=2
+                                        ),
+                                        FlexText(
+                                            text=str(item['user_ratings_total']),
+                                            wrap=True,
+                                            color='#666666',
+                                            size='sm',
+                                            flex=5
+                                        )
+                                    ],
+                                ),
+                            ],
+                        )
+                    ],
+                ),
+                footer=FlexBox(
+                    layout='vertical',
+                    spacing='sm',
+                    contents=[
+                        # callAction
+                        # FlexButton(
+                        #     style='link',
+                        #     height='sm',
+                        #     action=URIAction(label='CALL', uri='tel:000000'),
+                        # ),
+                        # websiteAction
+                        FlexButton(
+                            style='link',
+                            height='sm',
+                            action=URIAction(label='Google Map', uri=google_maps_url)
+                        )
+                    ]
+                ),
+            )
+            items.append(bubble)
+
+        bubbles = FlexCarousel(contents=items)
         return bubbles
 
+
+    def _get_photo_url(self, photo_reference):
+        link = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference='+photo_reference+'&key='+os.environ.get('GOOGLE_MAP_API_KEY')
+        return link
+
+    def _create_stars(self, rating):
+        gold_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png'
+        gray_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gray_star_28.png'
+        MAX_STARS = 5
+
+        content = [
+            FlexIcon(size='sm', url=gold_star_url) if i < rating else FlexIcon(size='sm', url=gray_star_url)
+            for i in range(MAX_STARS)
+        ] + [FlexText(text=str(rating), size='sm', color='#999999', margin='md', flex=0)]
+
+        return content

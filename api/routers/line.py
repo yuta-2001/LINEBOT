@@ -18,7 +18,6 @@ from linebot.v3.webhooks import (
     MessageEvent,
     TextMessageContent
 )
-from api.const.question_settings import QUESTION_SETTINGS
 from api.repository.firebase_conversation_repository import FirebaseConversationRepository
 from api.services.conversation_manager_service import ConversationManagerService
 from api.utils.logger import Logger
