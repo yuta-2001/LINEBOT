@@ -14,6 +14,7 @@ from linebot.v3.messaging import (
     MessagingApi,
 )
 from linebot.v3.webhooks import (
+    LocationMessageContent,
     MessageEvent,
     TextMessageContent
 )
@@ -45,11 +46,21 @@ async def callback(request: Request, x_line_signature=Header(None)):
 
     return "OK"
 
+line_bot_api = MessagingApi(ApiClient(configuration))
+conversation_repository = FirebaseConversationRepository()
 
+# 質問に対する回答
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
-    line_bot_api = MessagingApi(ApiClient(configuration))
-    conversation_repository = FirebaseConversationRepository()
     conversation_manager = ConversationManagerService(event.source.user_id, event.reply_token, conversation_repository)
     reply_content = conversation_manager.handle_recive_text(event.message.text)
     line_bot_api.reply_message(reply_content)
+
+# 位置情報取得後の結果送信
+@handler.add(MessageEvent, message=LocationMessageContent)
+def handle_location(event: MessageEvent):
+    conversation_manager = ConversationManagerService(event.source.user_id, event.reply_token, conversation_repository)
+    latitude = event.message.latitude
+    longitude = event.message.longitude
+    reply_result_content = conversation_manager.get_result(latitude, longitude)
+    line_bot_api.reply_message(reply_result_content)
