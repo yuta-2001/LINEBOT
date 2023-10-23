@@ -5,8 +5,19 @@ from urllib.parse import urlencode
 from dotenv import load_dotenv
 from firebase_admin import firestore
 from linebot.v3.messaging import (
+    FlexCarousel,
+    FlexMessage,
+    FlexBubble,
+    FlexImage,
+    FlexBox,
+    FlexText,
+    FlexIcon,
+    FlexButton,
+    FlexSeparator,
+    MessageAction,
     ReplyMessageRequest,
-    TextMessage
+    TextMessage,
+    URIAction
 )
 from linebot.v3.messaging.models import (
     LocationAction,
@@ -94,30 +105,30 @@ class ConversationManagerService():
 
 
     def get_result(self, latitude, longitude):
-        conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
+        # conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
-        base_url = os.environ.get('GOOGLE_MAP_API_URL')
-        query = {}
-        query['radius'] = 200
-        query['keyword'] = '海鮮'
-        query['location'] = str(latitude)+','+str(longitude)
-        query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
-        query['type'] = conversation_data['type']
+        # base_url = os.environ.get('GOOGLE_MAP_API_URL')
+        # query = {}
+        # query['radius'] = 200
+        # query['keyword'] = '海鮮'
+        # query['location'] = str(latitude)+','+str(longitude)
+        # query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
+        # query['type'] = conversation_data['type']
 
-        endpoint = base_url + '?' + urlencode(query)
-        log.debug(endpoint)
-        response = requests.get(endpoint)
-        data = response.json()
-        result = data['results']
-        log.debug(result)
-        flex_slider = self._create_flex_message(result)
-        json_str = 'あいうえお'
+        # endpoint = base_url + '?' + urlencode(query)
+        # log.debug(endpoint)
+        # response = requests.get(endpoint)
+        # data = response.json()
+        # result = data['results'][0]
+        # log.debug(result)
+        carousel = self._create_flex_message('a')
 
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
                     messages=[
-                        TextMessage(
-                            text=json_str,
+                        FlexMessage(
+                            alt_text="This is a Flex Carousel",
+                            contents=carousel
                         )
                     ]
                 )
@@ -154,7 +165,104 @@ class ConversationManagerService():
                     ]
                 )
     
-    def _create_flex_message(data):
-
-        return
+    def _create_flex_message(self, data):
+        bubble = FlexBubble(
+            direction='ltr',
+            hero=FlexImage(
+                url='https://example.com/cafe.jpg',
+                size='full',
+                aspect_ratio='20:13',
+                aspect_mode='cover',
+                action=URIAction(uri='http://example.com', label='label')
+            ),
+            body=FlexBox(
+                layout='vertical',
+                contents=[
+                    # title
+                    FlexText(text='Brown Cafe', weight='bold', size='xl'),
+                    # review
+                    FlexBox(
+                        layout='baseline',
+                        margin='md',
+                        contents=[
+                            FlexIcon(size='sm', url='https://example.com/gold_star.png'),
+                            FlexIcon(size='sm', url='https://example.com/grey_star.png'),
+                            FlexIcon(size='sm', url='https://example.com/gold_star.png'),
+                            FlexIcon(size='sm', url='https://example.com/gold_star.png'),
+                            FlexIcon(size='sm', url='https://example.com/grey_star.png'),
+                            FlexText(text='4.0', size='sm', color='#999999', margin='md', flex=0)
+                        ]
+                    ),
+                    # info
+                    FlexBox(
+                        layout='vertical',
+                        margin='lg',
+                        spacing='sm',
+                        contents=[
+                            FlexBox(
+                                layout='baseline',
+                                spacing='sm',
+                                contents=[
+                                    FlexText(
+                                        text='Place',
+                                        color='#aaaaaa',
+                                        size='sm',
+                                        flex=1
+                                    ),
+                                    FlexText(
+                                        text='Shinjuku, Tokyo',
+                                        wrap=True,
+                                        color='#666666',
+                                        size='sm',
+                                        flex=5
+                                    )
+                                ],
+                            ),
+                            FlexBox(
+                                layout='baseline',
+                                spacing='sm',
+                                contents=[
+                                    FlexText(
+                                        text='Time',
+                                        color='#aaaaaa',
+                                        size='sm',
+                                        flex=1
+                                    ),
+                                    FlexText(
+                                        text="10:00 - 23:00",
+                                        wrap=True,
+                                        color='#666666',
+                                        size='sm',
+                                        flex=5,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    )
+                ],
+            ),
+            footer=FlexBox(
+                layout='vertical',
+                spacing='sm',
+                contents=[
+                    # callAction
+                    FlexButton(
+                        style='link',
+                        height='sm',
+                        action=URIAction(label='CALL', uri='tel:000000'),
+                    ),
+                    # separator
+                    FlexSeparator(),
+                    # websiteAction
+                    FlexButton(
+                        style='link',
+                        height='sm',
+                        action=URIAction(label='WEBSITE', uri="https://example.com")
+                    )
+                ]
+            ),
+        )
+        # bubbles = [FlexMessage(alt_text="hello", contents=bubble), FlexMessage(alt_text="hello", contents=bubble)]
+        bubbles = FlexCarousel(contents=[bubble, bubble])
+        return bubbles
 
