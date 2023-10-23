@@ -26,7 +26,7 @@ class ConversationManagerService():
 
 
     def handle_recive_text(self, recive_text):
-        conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id)
+        conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
         content = ''
         if conversation_data:
@@ -45,7 +45,7 @@ class ConversationManagerService():
         current_status = QUESTION_SETTINGS[type]['order'][0]
         store_data = {
             'user_id': self.user_id,
-            'type': 1,
+            'type': type,
             'current_status': current_status,
             'created_at': firestore.SERVER_TIMESTAMP,
             'updated_at': firestore.SERVER_TIMESTAMP
@@ -59,12 +59,17 @@ class ConversationManagerService():
     def handle_answer(self, recive_text, conversation_data):
         current_status = conversation_data['current_status']
         type = conversation_data['type']
-        question_info = QUESTION_SETTINGS[type]
-        index_of_current = QUESTION_SETTINGS["restaurant"]['order'].index(current_status)
-        next_status = QUESTION_SETTINGS["restaurant"]['order'][index_of_current + 1]
+        questions_info = QUESTION_SETTINGS[type]
+        index_of_current = questions_info['order'].index(current_status)
+        next_status = questions_info['order'][index_of_current + 1]
 
-        if recive_text in question_info['questions'][current_status]['optioins']:
-            content = self._get_reply_content(self, type, next_status)
+        if recive_text in questions_info['questions'][current_status]['options']:
+            update_data = {
+                'current_status': next_status,
+                'answer.' + questions_info['questions'][current_status]['property']: recive_text
+            }
+            self.repository.update(self.user_id, update_data)
+            content = self._get_reply_content(type, next_status)
             return content
 
 
