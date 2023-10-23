@@ -48,10 +48,8 @@ async def callback(request: Request, x_line_signature=Header(None)):
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
-    recive_text = event.message.text
-    user_id = event.source.user_id
     line_bot_api = MessagingApi(ApiClient(configuration))
     conversation_repository = FirebaseConversationRepository()
-    conversation_manager = ConversationManagerService(user_id, event.reply_token, conversation_repository)
-    reply_content = conversation_manager.handle_recive_text(recive_text)
+    conversation_manager = ConversationManagerService(event.source.user_id, event.reply_token, conversation_repository)
+    reply_content = conversation_manager.handle_recive_text(event.message.text)
     line_bot_api.reply_message(reply_content)

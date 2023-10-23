@@ -9,15 +9,13 @@ class FirebaseConversationRepository(ConversationRepository):
         self.db = FirebaseManager.get_instance().db.collection('conversations')
 
     def store(self, data):
-        self.db.add(data)
+        self.db.document(data['user_id']).set(data)
 
-    def update(self, user_id, update_data):
-        docs = self.db.where('user_id', '==', user_id).stream()
-        for doc in docs:
-            doc.reference.update(update_data)
+    def update(self, user_id, data):
+        self.db.document(user_id).update(data)
 
     def get_conversation_info_by_user_id(self, user_id):
-        result = [doc.to_dict() for doc in self.db.where('user_id', '==', user_id).stream()]
+        result = self.db.document(user_id).get()
         if not result:
             return None
-        return result[0]
+        return result
