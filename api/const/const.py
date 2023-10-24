@@ -17,7 +17,6 @@ QUESTION_SETTINGS = {
                     'インド料理',
                     'ベトナム料理'
                 ],
-                'error_message': '選択肢から選んでください'
             },
             2: {
                 'id': 2,
@@ -31,12 +30,13 @@ QUESTION_SETTINGS = {
                     '2000',
                     '2500'
                 ],
-                'error_message': '選択肢から選んでください',
             },
         }
     }
 }
 
 TEXT_TO_START_CONVERSATION = {
-    'restaurant': '近くの飲食店を検索する'
+    'restaurant': '近くの飲食店を検索'
 }
+
+CONVERSATION_RESET_TEXT = '会話をリセットする'

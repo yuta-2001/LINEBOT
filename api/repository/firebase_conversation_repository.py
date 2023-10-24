@@ -14,6 +14,9 @@ class FirebaseConversationRepository(ConversationRepository):
     def update(self, user_id, data):
         self.db.document(user_id).update(data)
 
+    def delete(self, user_id):
+        self.db.document(user_id).delete()
+
     def get_conversation_info_by_user_id(self, user_id):
         result = self.db.document(user_id).get()
         if not result:
