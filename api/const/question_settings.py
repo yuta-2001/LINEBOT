@@ -7,6 +7,7 @@ QUESTION_SETTINGS = {
                 'id': 1,
                 'text': 'お好みのジャンルを選択してください',
                 'property': 'keyword',
+                'in_query': True,
                 'options': [
                     '海鮮',
                     'ラーメン',
@@ -20,14 +21,15 @@ QUESTION_SETTINGS = {
             },
             2: {
                 'id': 2,
-                'text': '現在地からの距離を入力してください',
+                'text': '現在地からの距離(m)を選択してください',
                 'property': 'radius',
+                'in_query': True,
                 'options': [
-                    '500m圏内',
-                    '1km圏内',
-                    '1.5km圏内',
-                    '2km圏内',
-                    '2.5km圏内'
+                    '500',
+                    '1000',
+                    '1500',
+                    '2000',
+                    '2500'
                 ],
                 'error_message': '選択肢から選んでください',
             },

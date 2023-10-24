@@ -84,19 +84,32 @@ class ConversationManagerService():
             # 最後の質問に対する回答の場合は、回答を保存して現在地の質問を返却
             # 途中の質問に対する回答の場合は、回答を保存して次の質問内容を返却
             if current_status == questions_info['order'][-1]:
-                update_data = {
-                    'answer.' + questions_info['questions'][current_status]['property']: recive_text
-                }
+                if questions_info['questions'][current_status]['in_query']:
+                    update_data = {
+                        'answer_in_query.' + questions_info['questions'][current_status]['property']: recive_text
+                    }
+                else:
+                    update_data = {
+                        'answer_not_in_query.' + questions_info['questions'][current_status]['property']: recive_text
+                    }
+
                 self.repository.update(self.user_id, update_data)
                 content = self._ask_location()
                 return content
             else:
                 index_of_current = questions_info['order'].index(current_status)
                 next_status = questions_info['order'][index_of_current + 1]
-                update_data = {
-                    'current_status': next_status,
-                    'answer.' + questions_info['questions'][current_status]['property']: recive_text
-                }
+                if questions_info['questions'][current_status]['in_query']:
+                    update_data = {
+                        'current_status': next_status,
+                        'answer_in_query.' + questions_info['questions'][current_status]['property']: recive_text
+                    }
+                else:
+                    update_data = {
+                        current_status: next_status,
+                        'answer_not_in_query.' + questions_info['questions'][current_status]['property']: recive_text
+                    }
+
                 self.repository.update(self.user_id, update_data)
                 content = self._get_reply_content(type, next_status)
                 return content
@@ -107,9 +120,7 @@ class ConversationManagerService():
         conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
         base_url = os.environ.get('GOOGLE_MAP_API_URL')
-        query = {}
-        query['radius'] = 200
-        query['keyword'] = '海鮮'
+        query = conversation_data['answer_in_query']
         query['location'] = str(latitude)+','+str(longitude)
         query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
         query['type'] = conversation_data['type']
@@ -118,14 +129,13 @@ class ConversationManagerService():
         response = requests.get(endpoint)
         data = response.json()
         result = data['results'][:3]
-        log.debug(result)
         carousel = self._create_flex_message(result)
 
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
                     messages=[
                         FlexMessage(
-                            alt_text="This is a Flex Carousel",
+                            alt_text="出力結果一覧",
                             contents=carousel
                         )
                     ]
@@ -162,7 +172,7 @@ class ConversationManagerService():
                         )
                     ]
                 )
-    
+
     def _create_flex_message(self, data):
         items = []
 
@@ -178,7 +188,7 @@ class ConversationManagerService():
                 hero=FlexImage(
                     url=image_url,
                     size='full',
-                    aspect_ratio=str(item['photos'][0]['width']) + ':' + str(item['photos'][0]['height']),
+                    aspect_ratio='3:2',
                     aspect_mode='cover',
                 ),
                 body=FlexBox(
@@ -225,13 +235,6 @@ class ConversationManagerService():
                     layout='vertical',
                     spacing='sm',
                     contents=[
-                        # callAction
-                        # FlexButton(
-                        #     style='link',
-                        #     height='sm',
-                        #     action=URIAction(label='CALL', uri='tel:000000'),
-                        # ),
-                        # websiteAction
                         FlexButton(
                             style='link',
                             height='sm',
@@ -249,6 +252,7 @@ class ConversationManagerService():
     def _get_photo_url(self, photo_reference):
         link = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference='+photo_reference+'&key='+os.environ.get('GOOGLE_MAP_API_KEY')
         return link
+
 
     def _create_stars(self, rating):
         gold_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png'
