@@ -7,7 +7,6 @@ QUESTION_SETTINGS = {
                 'id': 1,
                 'text': 'お好みのジャンルを選択してください',
                 'property': 'keyword',
-                'in_query': True,
                 'options': [
                     '海鮮',
                     'ラーメン',
@@ -22,7 +21,23 @@ QUESTION_SETTINGS = {
                 'id': 2,
                 'text': '現在地からの距離(m)を選択してください',
                 'property': 'radius',
-                'in_query': True,
+                'options': [
+                    '500',
+                    '1000',
+                    '1500',
+                    '2000',
+                    '2500'
+                ],
+            },
+        }
+    },
+    'cafe': {
+        'order': [1],
+        'questions': {
+            1: {
+                'id': 1,
+                'text': '現在地からの距離(m)を選択してください',
+                'property': 'radius',
                 'options': [
                     '500',
                     '1000',
@@ -36,7 +51,8 @@ QUESTION_SETTINGS = {
 }
 
 TEXT_TO_START_CONVERSATION = {
-    'restaurant': '近くの飲食店を検索'
+    'restaurant': '近くの飲食店を検索',
+    'cafe': '近くのカフェを検索'
 }
 
 CONVERSATION_RESET_TEXT = '会話をリセットする'

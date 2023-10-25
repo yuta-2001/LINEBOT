@@ -87,14 +87,9 @@ class ConversationManagerService():
             # 最後の質問に対する回答の場合は、回答を保存して現在地の質問を返却
             # 途中の質問に対する回答の場合は、回答を保存して次の質問内容を返却
             if current_status == questions_info['order'][-1]:
-                if questions_info['questions'][current_status]['in_query']:
-                    update_data = {
-                        'answer_in_query.' + questions_info['questions'][current_status]['property']: recive_text
-                    }
-                else:
-                    update_data = {
-                        'answer_not_in_query.' + questions_info['questions'][current_status]['property']: recive_text
-                    }
+                update_data = {
+                    'answer.' + questions_info['questions'][current_status]['property']: recive_text
+                }
 
                 self.repository.update(self.user_id, update_data)
                 content = self._ask_location()
@@ -102,16 +97,10 @@ class ConversationManagerService():
             else:
                 index_of_current = questions_info['order'].index(current_status)
                 next_status = questions_info['order'][index_of_current + 1]
-                if questions_info['questions'][current_status]['in_query']:
-                    update_data = {
-                        'current_status': next_status,
-                        'answer_in_query.' + questions_info['questions'][current_status]['property']: recive_text
-                    }
-                else:
-                    update_data = {
-                        current_status: next_status,
-                        'answer_not_in_query.' + questions_info['questions'][current_status]['property']: recive_text
-                    }
+                update_data = {
+                    'current_status': next_status,
+                    'answer.' + questions_info['questions'][current_status]['property']: recive_text
+                }
 
                 self.repository.update(self.user_id, update_data)
                 content = self._get_next_question_content(type, next_status)
@@ -121,7 +110,7 @@ class ConversationManagerService():
         conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
         base_url = os.environ.get('GOOGLE_MAP_API_URL')
-        query = conversation_data['answer_in_query']
+        query = conversation_data['answer']
         query['location'] = str(latitude)+','+str(longitude)
         query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
         query['type'] = conversation_data['type']
