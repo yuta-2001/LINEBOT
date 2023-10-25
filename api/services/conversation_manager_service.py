@@ -1,4 +1,5 @@
 import os
+import random
 import requests
 from urllib.parse import urlencode
 from dotenv import load_dotenv
@@ -118,7 +119,8 @@ class ConversationManagerService():
         endpoint = base_url + '?' + urlencode(query) + '&opennow'
         response = requests.get(endpoint)
         data = response.json()
-        result = data['results'][:3]
+        result = random.shuffle(data['results'])
+        result = result[:3]
         self.repository.delete(self.user_id)
         carousel = self._create_flex_message(result)
 
