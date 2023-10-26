@@ -24,7 +24,7 @@ from linebot.v3.messaging.models import (
     QuickReply,
     QuickReplyItem
 )
-from api.const.const import QUESTION_SETTINGS, TEXT_TO_START_CONVERSATION, CONVERSATION_RESET_TEXT
+from api.const import QUESTION_SETTINGS, TEXT_TO_START_CONVERSATION, CONVERSATION_RESET_TEXT
 from api.utils.helper import get_keys_from_value
 from api.utils.logger import Logger
 from api.repository.firebase_conversation_repository import ConversationRepository
@@ -106,33 +106,40 @@ class ConversationManagerService():
                 self.repository.update(self.user_id, update_data)
                 content = self._get_next_question_content(type, next_status)
                 return content
+        else:
+            content = self._get_text_reply_content('選択肢から選んでください')
+            return content
 
     def get_result(self, latitude, longitude):
         conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
-        base_url = os.environ.get('GOOGLE_MAP_API_URL')
-        query = conversation_data['answer']
-        query['location'] = str(latitude)+','+str(longitude)
-        query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
-        query['type'] = conversation_data['type']
+        if conversation_data and self._is_answerd_last_question(conversation_data):
+            base_url = os.environ.get('GOOGLE_MAP_API_URL')
+            query = conversation_data['answer']
+            query['location'] = str(latitude)+','+str(longitude)
+            query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
+            query['type'] = conversation_data['type']
 
-        endpoint = base_url + '?' + urlencode(query) + '&opennow'
-        response = requests.get(endpoint)
-        data = response.json()
-        result = random.shuffle(data['results'])
-        result = result[:3]
-        self.repository.delete(self.user_id)
-        carousel = self._create_flex_message(result)
+            endpoint = base_url + '?' + urlencode(query) + '&opennow'
+            response = requests.get(endpoint)
+            data = response.json()
+            result = random.shuffle(data['results'])
+            result = result[:3]
+            self.repository.delete(self.user_id)
+            carousel = self._create_flex_message(result)
 
-        return  ReplyMessageRequest(
-                    reply_token=self.reply_token,
-                    messages=[
-                        FlexMessage(
-                            alt_text="出力結果一覧",
-                            contents=carousel
-                        )
-                    ]
-                )
+            return  ReplyMessageRequest(
+                        reply_token=self.reply_token,
+                        messages=[
+                            FlexMessage(
+                                alt_text="出力結果一覧",
+                                contents=carousel
+                            )
+                        ]
+                    )
+        else:
+            content = self._get_text_reply_content('会話記録がありません。')
+            return content
 
     def _get_next_question_content(self, type, current_status):
         question_info = QUESTION_SETTINGS[type]['questions'][current_status]
@@ -265,3 +272,10 @@ class ConversationManagerService():
         ] + [FlexText(text=str(rating), size='sm', color='#999999', margin='md', flex=0)]
 
         return content
+
+
+    def _is_answerd_last_question(self, conversation_data):
+        last_question_index = QUESTION_SETTINGS[conversation_data['type']]['order'][-1]
+        last_question_property = QUESTION_SETTINGS[conversation_data['type']][last_question_index]['property']
+        return last_question_property in conversation_data['answer']
+

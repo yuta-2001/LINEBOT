@@ -20,7 +20,7 @@ from linebot.v3.webhooks import (
     MessageEvent,
     TextMessageContent
 )
-from api.const.const import EXCEPTION_ERROR_MESSAGE
+from api.const import EXCEPTION_ERROR_MESSAGE
 from api.repository.firebase_conversation_repository import FirebaseConversationRepository
 from api.services.conversation_manager_service import ConversationManagerService
 from api.utils.logger import Logger
@@ -57,7 +57,7 @@ line_bot_api = MessagingApi(ApiClient(configuration))
 conversation_repository = FirebaseConversationRepository()
 
 
-# 質問に対する回答
+# テキストメッセージに対する回答
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
     try:
@@ -78,7 +78,7 @@ def handle_message(event: MessageEvent):
             )
         )
 
-# 位置情報取得後の結果送信
+# 位置情報メッセージに対する回答
 @handler.add(MessageEvent, message=LocationMessageContent)
 def handle_location(event: MessageEvent):
     try:

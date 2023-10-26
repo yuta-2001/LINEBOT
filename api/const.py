@@ -54,4 +54,12 @@ TEXT_TO_START_CONVERSATION = {
 }
 
 CONVERSATION_RESET_TEXT = '会話をリセットする'
-EXCEPTION_ERROR_MESSAGE = '予期せぬエラーが発生しましrた'
+
+ERROR_TEXT = {
+    'EXCEPTION_ERROR_MESSAGE': '予期せぬエラーが発生しました。リッチメニューから会話をリセットしてください。',
+    'SELECT_FROM_RICH_MENU': 'リッチメニューから選択してください。',
+    'SELECT_FROM_QUICK_REPLY': '選択肢の中から選んでください。',
+    'NO_CONVERSATION_DATA': '会話記録がありません。',
+}
+
+

@@ -1,8 +1,6 @@
 from api.repository.conversation_repository import ConversationRepository
 from api.utils.firebase_manager import FirebaseManager
-from api.utils.logger import Logger
 
-log = Logger().get()
 
 class FirebaseConversationRepository(ConversationRepository):
     def __init__(self):
