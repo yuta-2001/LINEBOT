@@ -62,4 +62,11 @@ ERROR_TEXT = {
     'NO_CONVERSATION_DATA': '会話記録がありません。',
 }
 
+MAX_STARS = 5
+STAR_NAMES = {
+    'FULL_STAR': 'star-solid.svg',
+    'HARF_STAR': 'star-half-stroke-solid.svg',
+    'EMPTY_STAR': 'star-regular.svg'
+}
+
 

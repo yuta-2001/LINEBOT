@@ -24,8 +24,17 @@ from linebot.v3.messaging.models import (
     QuickReply,
     QuickReplyItem
 )
-from api.const import QUESTION_SETTINGS, TEXT_TO_START_CONVERSATION, CONVERSATION_RESET_TEXT
-from api.utils.helper import get_keys_from_value
+from api.const import (
+    CONVERSATION_RESET_TEXT,
+    MAX_STARS,
+    QUESTION_SETTINGS,
+    STAR_NAMES,
+    TEXT_TO_START_CONVERSATION,
+)
+from api.utils.helper import (
+    get_keys_from_value,
+    get_image_file_url
+)
 from api.utils.logger import Logger
 from api.repository.firebase_conversation_repository import ConversationRepository
 
@@ -187,7 +196,7 @@ class ConversationManagerService():
 
         for item in data:
             image_url = self._get_photo_url(item["photos"][0]["photo_reference"])
-            stars = self._create_stars(int(item['rating']))
+            stars = self._create_stars(float(item['rating']))
 
             place_id = item['place_id']
             google_maps_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
@@ -261,15 +270,26 @@ class ConversationManagerService():
         link = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference='+photo_reference+'&key='+os.environ.get('GOOGLE_MAP_API_KEY')
         return link
 
-    def _create_stars(self, rating):
-        gold_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png'
-        gray_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gray_star_28.png'
-        MAX_STARS = 5
 
-        content = [
-            FlexIcon(size='sm', url=gold_star_url) if i < rating else FlexIcon(size='sm', url=gray_star_url)
-            for i in range(MAX_STARS)
-        ] + [FlexText(text=str(rating), size='sm', color='#999999', margin='md', flex=0)]
+    def _create_stars(self, rating):
+        full_star_url = get_image_file_url(STAR_NAMES['FULL_STAR'])
+        half_star_url = get_image_file_url(STAR_NAMES['HALF_STAR'])
+        empty_star_url = get_image_file_url(STAR_NAMES['EMPTY_STAR'])
+
+        # 整数部分と小数部分に分割
+        int_part = int(rating)
+        decimal_part = rating - int_part
+
+        content = [FlexIcon(size='sm', url=full_star_url) for _ in range(int_part)]
+
+        # 小数部分が0.5以上の場合、半分の星を追加
+        if decimal_part >= 0.5:
+            content.append(FlexIcon(size='sm', url=half_star_url))
+            int_part += 1  # すでに半分の星を追加したので、残りの空の星の数を1つ減らす
+
+        # 残りの星をempty_starで埋める
+        content.extend([FlexIcon(size='sm', url=empty_star_url) for _ in range(MAX_STARS - int_part)])
+        content.append(FlexText(text=str(rating), size='sm', color='#999999', margin='md', flex=0))
 
         return content
 
