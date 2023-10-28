@@ -20,7 +20,7 @@ from linebot.v3.webhooks import (
     MessageEvent,
     TextMessageContent
 )
-from api.const import EXCEPTION_ERROR_MESSAGE
+from api.const import ERROR_TEXT
 from api.repository.firebase_conversation_repository import FirebaseConversationRepository
 from api.services.conversation_manager_service import ConversationManagerService
 from api.utils.logger import Logger
@@ -95,8 +95,23 @@ def handle_location(event: MessageEvent):
                 reply_token=event.reply_token,
                 messages=[
                     TextMessage(
-                        text=EXCEPTION_ERROR_MESSAGE,
+                        text=ERROR_TEXT['EXCEPTION_ERROR_MESSAGE'],
                     )
                 ]
             )
         )
+
+
+# その他のメッセージにはエラーを返す
+@handler.default()
+def default(event):
+    line_bot_api.reply_message(
+        ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[
+                TextMessage(
+                    text=ERROR_TEXT['NOT_SUPPORTED_TYPE_MESSAGE'],
+                )
+            ]
+        )
+    )

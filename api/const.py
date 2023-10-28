@@ -60,6 +60,7 @@ ERROR_TEXT = {
     'SELECT_FROM_RICH_MENU': 'リッチメニューから選択してください。',
     'SELECT_FROM_QUICK_REPLY': '選択肢の中から選んでください。',
     'NO_CONVERSATION_DATA': '会話記録がありません。',
+    'NOT_SUPPORTED_TYPE_MESSAGE': '送信いただいたメッセージタイプはサポートしていません。'
 }
 
 MAX_STARS = 5
