@@ -26,5 +26,6 @@ class Logger:
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
 
-    def get(self):
+    def get(self) -> logging.Logger:
         return self.logger
+

@@ -1,9 +1,12 @@
 import os
 import random
 import requests
+from typing import List, Union
 from urllib.parse import urlencode
 from dotenv import load_dotenv
+
 from firebase_admin import firestore
+
 from linebot.v3.messaging import (
     FlexCarousel,
     FlexMessage,
@@ -24,8 +27,21 @@ from linebot.v3.messaging.models import (
     QuickReply,
     QuickReplyItem
 )
-from api.const import QUESTION_SETTINGS, TEXT_TO_START_CONVERSATION, CONVERSATION_RESET_TEXT
-from api.utils.helper import get_keys_from_value
+
+from api.const import (
+    ASK_LOCATION_QUESTION,
+    CONVERSATION_RESET_TEXT,
+    ERROR_TEXT,
+    INFORM_TEXT,
+    MAX_STARS,
+    QUESTION_SETTINGS,
+    STAR_NAMES,
+    TEXT_TO_START_CONVERSATION,
+)
+from api.utils.helper import (
+    get_keys_from_value,
+    get_image_file_url
+)
 from api.utils.logger import Logger
 from api.repository.firebase_conversation_repository import ConversationRepository
 
@@ -33,39 +49,114 @@ log = Logger().get()
 load_dotenv()
 
 class ConversationManagerService():
+    """
+    ユーザーとの会話全般の管理を行います
+
+    主な役割
+    - ユーザーのメッセージから適切な返答を生成
+    - ユーザーの回答内容をDBに保存
+    - 意図しないメッセージが来た場合にvalidationを実行
+
+    Parameters
+    ----------
+    user_id : str
+        メッセージ取得時に渡ってくるLINEユーザーのユニークID
+    reply_token : str
+        メッセージ取得時に、そのメッセージに返答を行うために必要なtoken
+    conversation_repository : ConversationRepository
+        会話のデータを保存・取得・削除するためのリポジトリ
+
+    Attributes
+    ---------
+    user_id : str
+        メッセージ取得時に渡ってくるLINEユーザーのユニークID
+    reply_token : str
+        メッセージ取得時に、そのメッセージに返答を行うために必要なtoken
+    conversation_repository : ConversationRepository
+        会話のデータを保存・取得・削除するためのリポジトリ
+    """
+
     def __init__(self, user_id: str, reply_token: str, conversation_repository: ConversationRepository):
         self.user_id = user_id
         self.reply_token = reply_token
         self.repository = conversation_repository
 
-    def handle_recive_text(self, recive_text):
+
+    def handle_recive_text(self, receive_text: str) -> 'ReplyMessageRequest':
+        """
+        ユーザーの入力に対してて適切な回答を生成し返却
+
+        ユーザーの入力に対しての次のアクションを、ユーザーの会話履歴等に基づいて振り分ける
+        - 送信してきたユーザーに会話履歴があるかを確認
+            - 会話リセットの場合 - 会話リセット用関数を呼び出す
+            - ある場合
+                - ユーザーの回答ということになるので、answerを処理する関数を呼び出す
+            - ない場合
+                - 会話スタートのテキストだった場合は会話スタート用のメソッドを呼び出す
+                - 上記に当てはまらない場合は不正なリクエストなのでエラー文言を出すメソッドを呼び出す
+
+        Parameters
+        ----------
+        receive_text : str
+            ユーザーからのメッセージ
+
+        Returns
+        -------
+        ReplyMessageRequest
+            割り当てた関数内で生成されたcontentを返却
+        """
+
         conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
         content = ''
-        if recive_text == CONVERSATION_RESET_TEXT:
+        if receive_text == CONVERSATION_RESET_TEXT:
             content = self.reset_conversation()
         elif conversation_data:
-            content = self.handle_answer(recive_text, conversation_data)
-        elif recive_text in list(TEXT_TO_START_CONVERSATION.values()):
-            content = self.start_conversation(recive_text)
+            content = self.handle_answer(receive_text, conversation_data)
+        elif receive_text in list(TEXT_TO_START_CONVERSATION.values()):
+            content = self.start_conversation(receive_text)
         else:
-            content = self.caution_to_select_from_rich_menu()
+            content = self._get_next_question_content(ERROR_TEXT['SELECT_FROM_RICH_MENU'])
 
         return content
 
-    def reset_conversation(self):
+
+    def reset_conversation(self) -> 'ReplyMessageRequest':
+        """
+        会話履歴のリセット関連処理を行う
+
+        - 会話履歴の削除
+        - 返答メッセージの生成
+
+        Returns
+        -------
+        ReplyMessageRequest
+            リセット後の返答メッセージコンテンツ
+        """
         self.repository.delete(self.user_id)
-        reply_str = '検索内容をリセットしました。'
-        content = self._get_text_reply_content(reply_str)
+        content = self._get_text_reply_content(INFORM_TEXT['RESET_CONVERSATION'])
         return content
 
-    def caution_to_select_from_rich_menu(self):
-        caution = 'リッチメニューから選択してください'
-        content = self._get_next_question_content(caution)
-        return content
 
-    def start_conversation(self, recive_text):
-        type = get_keys_from_value(TEXT_TO_START_CONVERSATION, recive_text)
+    def start_conversation(self, receive_text: str) -> 'ReplyMessageRequest':
+        """
+        会話を開始する処理を行う
+
+        - 受け取ったメッセージからなんのタイプの検索をするかを判定
+        - それに基づいて、ユーザー用の会話履歴を保存
+        - 最初の質問内容を返却する
+
+        Paramenters
+        -----------
+        receive_text : str
+            ユーザーからのメッセージ内容
+        
+        Returns
+        -------
+        ReplyMessageRequest
+            次の質問に関する返答メッセージコンテンツ
+        """
+        type = get_keys_from_value(TEXT_TO_START_CONVERSATION, receive_text)
         current_status = QUESTION_SETTINGS[type]['order'][0]
         store_data = {
             'user_id': self.user_id,
@@ -78,71 +169,138 @@ class ConversationManagerService():
         content = self._get_next_question_content(type, current_status)
         return content
 
-    def handle_answer(self, recive_text, conversation_data):
+
+    def handle_answer(self, receive_text: str, conversation_data: dict) -> 'ReplyMessageRequest':
+        """
+        会話履歴のあるユーザー対して、回答メッセージに基づきデータの保存と次の質問メッセージコンテンツ等を返却
+
+        - ユーザーのメッセージがクイックリプライの選択肢にあるものかを判定
+            - ある場合
+                - 最後の質問に対する回答
+                    - 回答の保存と次の質問に関するコンテンツ(位置情報入力を求めるメッセージ)を返却
+                - それ以外
+                    回答の保存と次の質問に関するコンテンツを返却
+            - ない場合 - エラーメッセージコンテンツを返却
+
+        Parameters
+        ----------
+        receive_text : str
+            ユーザーからのメッセージ内容
+        conversation_data : dict
+            ユーザーのこれまでの検索会話履歴
+
+        Returns
+        -------
+        ReplyMessageRequest
+            次の質問に関する返答メッセージコンテンツまたは位置情報コンテンツ
+        """
         current_status = conversation_data['current_status']
         type = conversation_data['type']
         questions_info = QUESTION_SETTINGS[type]
 
-        if recive_text in questions_info['questions'][current_status]['options']:
+        if receive_text in questions_info['questions'][current_status]['options']:
 
             # 最後の質問に対する回答の場合は、回答を保存して現在地の質問を返却
             # 途中の質問に対する回答の場合は、回答を保存して次の質問内容を返却
             if current_status == questions_info['order'][-1]:
                 update_data = {
-                    'answer.' + questions_info['questions'][current_status]['property']: recive_text
+                    'answer.' + questions_info['questions'][current_status]['property']: receive_text
                 }
 
                 self.repository.update(self.user_id, update_data)
-                content = self._ask_location()
+                content = self._get_location_content(ASK_LOCATION_QUESTION)
                 return content
             else:
                 index_of_current = questions_info['order'].index(current_status)
                 next_status = questions_info['order'][index_of_current + 1]
                 update_data = {
                     'current_status': next_status,
-                    'answer.' + questions_info['questions'][current_status]['property']: recive_text
+                    'answer.' + questions_info['questions'][current_status]['property']: receive_text
                 }
 
                 self.repository.update(self.user_id, update_data)
                 content = self._get_next_question_content(type, next_status)
                 return content
         else:
-            content = self._get_text_reply_content('選択肢から選んでください')
+            content = self._get_text_reply_content(ERROR_TEXT['SELECT_FROM_QUICK_REPLY'])
             return content
 
-    def get_result(self, latitude, longitude):
+
+    def get_result(self, latitude: str, longitude: str) -> 'ReplyMessageRequest':
+        """
+        検索の結果を返却する
+
+        - DBにある会話の記録を元にPlaces APIにリクエスト
+        - 結果の中からランダムで3つの情報を取得しFlex Messageを作りユーザーに送信
+        - 会話履歴は削除する
+
+        Parameters
+            latitude : str
+                位置情報メッセージイベントで取得した緯度の情報
+            longitude : str
+                位置情報メッセージイベントで取得した軽度の情報
+        
+        Returns
+            ReplyMessageRequest
+                結果を格納したメッセージコンテンツ
+        """
         conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
-        if conversation_data and self._is_answerd_last_question(conversation_data):
-            base_url = os.environ.get('GOOGLE_MAP_API_URL')
-            query = conversation_data['answer']
-            query['location'] = str(latitude)+','+str(longitude)
-            query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
-            query['type'] = conversation_data['type']
+        if conversation_data:
+            if self._is_answerd_last_question(conversation_data):
+                base_url = os.environ.get('GOOGLE_MAP_API_URL')
+                query = conversation_data['answer']
+                query['location'] = latitude+','+longitude
+                query['key'] = os.environ.get('GOOGLE_MAP_API_KEY')
+                query['type'] = conversation_data['type']
 
-            endpoint = base_url + '?' + urlencode(query) + '&opennow'
-            response = requests.get(endpoint)
-            data = response.json()
-            result = random.shuffle(data['results'])
-            result = result[:3]
-            self.repository.delete(self.user_id)
-            carousel = self._create_flex_message(result)
+                endpoint = base_url + '?' + urlencode(query) + '&opennow'
+                response = requests.get(endpoint)
+                data = response.json()
+                result = random.shuffle(data['results'])
+                result = result[:3]
+                self.repository.delete(self.user_id)
+                carousel = self._get_flex_message(result)
 
-            return  ReplyMessageRequest(
-                        reply_token=self.reply_token,
-                        messages=[
-                            FlexMessage(
-                                alt_text="出力結果一覧",
-                                contents=carousel
-                            )
-                        ]
-                    )
+                return  ReplyMessageRequest(
+                            reply_token=self.reply_token,
+                            messages=[
+                                FlexMessage(
+                                    alt_text="出力結果一覧",
+                                    contents=carousel
+                                )
+                            ]
+                        )
+            else:
+                content = self._get_text_reply_content('質問が最後まで終わっていません。')
+                return content
         else:
             content = self._get_text_reply_content('会話記録がありません。')
             return content
 
-    def _get_next_question_content(self, type, current_status):
-        question_info = QUESTION_SETTINGS[type]['questions'][current_status]
+
+    def _get_next_question_content(self, type: str, status: int) -> 'ReplyMessageRequest':
+        """
+        次の質問に関するコンテンツを作成
+
+        検索のtypeとステータスナンバーから次の質問に関するコンテンツを作成
+        - 質問の回答選択肢をクイックリプライで作成
+        - 質問分をテキストで返却
+
+        Paramenters
+        -----------
+        type : str
+            検索のtype(restaurant)などの文字列
+        status : int
+            検索における何問目の質問かという情報
+
+        Returns
+        -------
+        ReplyMessageRequest
+            質問内容テキストと選択肢のクイックリプライコンテンツを生成し返却
+        """
+
+        question_info = QUESTION_SETTINGS[type]['questions'][status]
         reply_text = question_info['text']
         options = question_info['options']
         items = []
@@ -159,7 +317,19 @@ class ConversationManagerService():
                     ]
                 )
 
-    def _get_text_reply_content(self, reply_text):
+
+    def _get_text_reply_content(self, reply_text: str) -> 'ReplyMessageRequest':
+        """
+        引数で受けた文字列を元に返信コンテンツを生成して返却
+
+        Parameters
+        reply_text : str
+            返信で使用するメッセージ内容
+
+        Returns
+        ReplyMessageRequest
+            reply_textを元に生成した返信コンテンツ
+        """
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
                     messages=[
@@ -169,12 +339,24 @@ class ConversationManagerService():
                     ]
                 )
 
-    def _ask_location(self):
+
+    def _get_location_content(self, reply_text: str) -> 'ReplyMessageRequest':
+        """
+        引数で受けたメッセージと位置情報を選択してもらうクイックリプライのコンテンツを生成して返却
+
+        Parameters
+        reply_text : str
+            返信で使用するメッセージ内容
+
+        Returns
+        ReplyMessageRequest
+            reply_textで受けた返信メッセージと、クイックリプライでlocationを入力するメッセージコンテンツ
+        """
         return  ReplyMessageRequest(
                     reply_token=self.reply_token,
                     messages=[
                         TextMessage(
-                            text='現在地を選択してください',
+                            text=reply_text,
                             quick_reply=QuickReply(
                                 items=[QuickReplyItem(action=LocationAction(label="location", text="location"))]
                             )
@@ -182,12 +364,27 @@ class ConversationManagerService():
                     ]
                 )
 
-    def _create_flex_message(self, data):
+
+    def _get_flex_message(self, data: list) -> 'FlexCarousel':
+        """
+        Flex Messageコンテンツを作成する
+
+        渡ってきたデータを元に３つのFlex Messageコンテンツを作成しFlexCarouselでまとめる
+        
+        
+        Parameters
+        data : list
+            Places APIから取得した検索結果３個の情報
+
+        Returns
+        FlexCarousel
+            結果をFlexCarouselに整形したもの
+        """
         items = []
 
         for item in data:
             image_url = self._get_photo_url(item["photos"][0]["photo_reference"])
-            stars = self._create_stars(int(item['rating']))
+            stars = self._create_stars(float(item['rating']))
 
             place_id = item['place_id']
             google_maps_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
@@ -257,24 +454,78 @@ class ConversationManagerService():
         bubbles = FlexCarousel(contents=items)
         return bubbles
 
-    def _get_photo_url(self, photo_reference):
+
+    def _get_photo_url(self, photo_reference: str) -> str:
+        """
+        photo_reference(Places APIから取得できるお店の画像に関する文字列情報)を元に画像linkを作成
+
+        Parameters
+        ----------
+        photo_reference : str
+            Places APIから取得できるお店の画像に関する文字列情報
+
+        Returns
+        -------
+        str
+            生成した画像リンクが返却される
+        """
         link = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference='+photo_reference+'&key='+os.environ.get('GOOGLE_MAP_API_KEY')
         return link
 
-    def _create_stars(self, rating):
-        gold_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png'
-        gray_star_url = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gray_star_28.png'
-        MAX_STARS = 5
 
-        content = [
-            FlexIcon(size='sm', url=gold_star_url) if i < rating else FlexIcon(size='sm', url=gray_star_url)
-            for i in range(MAX_STARS)
-        ] + [FlexText(text=str(rating), size='sm', color='#999999', margin='md', flex=0)]
+    def _create_stars(self, rating: float) -> List[Union[FlexIcon, FlexText]]:
+        """
+        ratingの値から適切な星マークのコンテンツを取得
+
+        Parameters
+        ----------
+        rating : float
+            星マークを描画するための評価値。0-5のfloat値が渡ってくる
+
+        Returns
+        -------
+        List[Union[FlexIcon, FlexText]]
+            星マークのリスト。最後の要素には評価値がテキストとして追加される。
+        """
+        full_star_url = get_image_file_url(STAR_NAMES['FULL_STAR'])
+        half_star_url = get_image_file_url(STAR_NAMES['HALF_STAR'])
+        empty_star_url = get_image_file_url(STAR_NAMES['EMPTY_STAR'])
+
+        # 整数部分と小数部分に分割
+        int_part = int(rating)
+        decimal_part = rating - int_part
+
+        content = [FlexIcon(size='sm', url=full_star_url) for _ in range(int_part)]
+
+        # 小数部分が0.5以上の場合、半分の星を追加
+        if decimal_part >= 0.5:
+            content.append(FlexIcon(size='sm', url=half_star_url))
+            int_part += 1  # すでに半分の星を追加したので、残りの空の星の数を1つ減らす
+
+        # 残りの星をempty_starで埋める
+        content.extend([FlexIcon(size='sm', url=empty_star_url) for _ in range(MAX_STARS - int_part)])
+        content.append(FlexText(text=str(rating), size='sm', color='#999999', margin='md', flex=0))
 
         return content
 
 
-    def _is_answerd_last_question(self, conversation_data):
+    def _is_answerd_last_question(self, conversation_data: dict) -> bool: 
+        """
+        最後の質問が回答済みかを判定する
+
+        会話記録のDBから、検索タイプの最後にある質問が既に回答済みかどうかを判定する
+
+        Paramenters
+        -----------
+        conversation_data : dict
+            DBから取得したユーザーの会話記録
+
+        Returns
+        -------
+        bool
+            最後の質問が回答済みならTrueを返す
+
+        """
         last_question_index = QUESTION_SETTINGS[conversation_data['type']]['order'][-1]
         last_question_property = QUESTION_SETTINGS[conversation_data['type']][last_question_index]['property']
         return last_question_property in conversation_data['answer']

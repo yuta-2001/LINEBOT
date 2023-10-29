@@ -8,7 +8,7 @@ class FirebaseManager:
     _instance = None
 
     @staticmethod
-    def get_instance():
+    def get_instance() -> 'FirebaseManager':
         if FirebaseManager._instance is None:
             FirebaseManager()
         return FirebaseManager._instance
