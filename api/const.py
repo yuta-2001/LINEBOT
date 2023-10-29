@@ -70,4 +70,10 @@ STAR_NAMES = {
     'EMPTY_STAR': 'star-regular.svg'
 }
 
+INFORM_TEXT = {
+    'RESET_CONVERSATION': '会話履歴をリセットしました。'
+}
+
+ASK_LOCATION_QUESTION = '現在地を選択してください'
+
 

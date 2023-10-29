@@ -75,7 +75,15 @@ async def callback(request: Request, x_line_signature=Header(None)):
 
 conversation_repository = FirebaseConversationRepository()
 
-# テキストメッセージに対する回答
+"""
+Summary
+------
+テキストメッセージに対する処理を行う
+
+Description
+-----------
+検索会話の開始・回答・会話リセット時に発火するイベントに対する処理を行う。
+"""
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent):
     try:
@@ -96,13 +104,21 @@ def handle_message(event: MessageEvent):
             )
         )
 
-# 位置情報メッセージに対する回答
+"""
+Summary
+-------
+位置情報メッセージイベントの処理を記載
+
+Description
+-----------
+結果返却前の位置情報メッセージイベントの処理を担当。
+"""
 @handler.add(MessageEvent, message=LocationMessageContent)
 def handle_location(event: MessageEvent):
     try:
         conversation_manager = ConversationManagerService(event.source.user_id, event.reply_token, conversation_repository)
-        latitude = event.message.latitude
-        longitude = event.message.longitude
+        latitude = str(event.message.latitude)
+        longitude = str(event.message.longitude)
         reply_result_content = conversation_manager.get_result(latitude, longitude)
         line_bot_api.reply_message(reply_result_content)
 
@@ -119,8 +135,16 @@ def handle_location(event: MessageEvent):
             )
         )
 
+"""
+Summary
+-------
+テキストメッセージと位置情報メッセージ以外を処理する
 
-# その他のメッセージにはエラーを返す
+Description
+-----------
+今回のアプリケーションにはテキストメッセージと位置情報メッセージ以外を使用する処理は存在しない
+そのためその他のイベントに対してはエラーメッセージを返却する。
+"""
 @handler.default()
 def default(event):
     line_bot_api.reply_message(
