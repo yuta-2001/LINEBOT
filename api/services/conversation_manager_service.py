@@ -227,6 +227,23 @@ class ConversationManagerService():
 
 
     def get_result(self, latitude: str, longitude: str) -> 'ReplyMessageRequest':
+        """
+        検索の結果を返却する
+
+        - DBにある会話の記録を元にPlaces APIにリクエスト
+        - 結果の中からランダムで3つの情報を取得しFlex Messageを作りユーザーに送信
+        - 会話履歴は削除する
+
+        Parameters
+            latitude : str
+                位置情報メッセージイベントで取得した緯度の情報
+            longitude : str
+                位置情報メッセージイベントで取得した軽度の情報
+        
+        Returns
+            ReplyMessageRequest
+                結果を格納したメッセージコンテンツ
+        """
         conversation_data = self.repository.get_conversation_info_by_user_id(self.user_id).to_dict()
 
         if conversation_data:
@@ -348,9 +365,20 @@ class ConversationManagerService():
                 )
 
 
-    def _get_flex_message(self, data: dict) -> 'FlexCarousel':
+    def _get_flex_message(self, data: list) -> 'FlexCarousel':
         """
+        Flex Messageコンテンツを作成する
+
+        渡ってきたデータを元に３つのFlex Messageコンテンツを作成しFlexCarouselでまとめる
         
+        
+        Parameters
+        data : list
+            Places APIから取得した検索結果３個の情報
+
+        Returns
+        FlexCarousel
+            結果をFlexCarouselに整形したもの
         """
         items = []
 
@@ -481,7 +509,23 @@ class ConversationManagerService():
         return content
 
 
-    def _is_answerd_last_question(self, conversation_data):
+    def _is_answerd_last_question(self, conversation_data: dict) -> bool: 
+        """
+        最後の質問が回答済みかを判定する
+
+        会話記録のDBから、検索タイプの最後にある質問が既に回答済みかどうかを判定する
+
+        Paramenters
+        -----------
+        conversation_data : dict
+            DBから取得したユーザーの会話記録
+
+        Returns
+        -------
+        bool
+            最後の質問が回答済みならTrueを返す
+
+        """
         last_question_index = QUESTION_SETTINGS[conversation_data['type']]['order'][-1]
         last_question_property = QUESTION_SETTINGS[conversation_data['type']][last_question_index]['property']
         return last_question_property in conversation_data['answer']
